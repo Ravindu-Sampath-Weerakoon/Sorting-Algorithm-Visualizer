@@ -16,28 +16,37 @@ export default function SortingVisualizer() {
   const stopSortingRef = useRef(false);
 
   const generateNewArray = useCallback(() => {
-    if (isSorting) return;
+    stopSortingRef.current = false;
     const newArray = Array.from({ length: 50 }, () => Math.floor(Math.random() * 100) + 1);
     setArray(newArray);
     setBarStates(new Array(50).fill("default"));
     setLogs(["Generated new array."]);
-  }, [isSorting]);
+    setIsSorting(false);
+  }, []);
 
   useEffect(() => {
     generateNewArray();
-  }, [generateNewArray]);
+  }, []);
 
   const addLog = (message: string) => {
     setLogs(prevLogs => [...prevLogs, message]);
   };
 
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  const sleep = (ms: number) => new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (stopSortingRef.current) {
+        reject(new Error('STOP_SORTING'));
+      } else {
+        resolve(true);
+      }
+    }, ms);
+  });
 
   const bubbleSort = async (arr: number[], newBarStates: BarState[]) => {
     const n = arr.length;
     for (let i = 0; i < n - 1; i++) {
       for (let j = 0; j < n - i - 1; j++) {
-        if (stopSortingRef.current) return;
+        if (stopSortingRef.current) throw new Error('STOP_SORTING');
         newBarStates[j] = "comparing";
         newBarStates[j + 1] = "comparing";
         setBarStates([...newBarStates]);
@@ -65,13 +74,17 @@ export default function SortingVisualizer() {
 
   const quickSort = async (arr: number[], low: number, high: number, newBarStates: BarState[]) => {
     if (low < high) {
-      if (stopSortingRef.current) return;
+      if (stopSortingRef.current) throw new Error('STOP_SORTING');
       const pi = await partition(arr, low, high, newBarStates);
       await quickSort(arr, low, pi - 1, newBarStates);
       await quickSort(arr, pi + 1, high, newBarStates);
     }
-    if (low >= 0 && low < arr.length) newBarStates[low] = "sorted";
-    if (high >= 0 && high < arr.length) newBarStates[high] = "sorted";
+    if (low >= 0 && high < arr.length) {
+      for (let i = low; i <= high; i++) {
+        if(i < arr.length) newBarStates[i] = "sorted";
+      }
+      setBarStates([...newBarStates]);
+    }
   };
 
   const partition = async (arr: number[], low: number, high: number, newBarStates: BarState[]) => {
@@ -80,7 +93,7 @@ export default function SortingVisualizer() {
     newBarStates[high] = "comparing";
     addLog(`Pivot selected: ${pivot}`);
     for (let j = low; j < high; j++) {
-      if (stopSortingRef.current) return i;
+      if (stopSortingRef.current) throw new Error('STOP_SORTING');
       newBarStates[j] = "comparing";
       setBarStates([...newBarStates]);
       addLog(`Comparing ${arr[j]} with pivot ${pivot}.`);
@@ -95,8 +108,11 @@ export default function SortingVisualizer() {
         [arr[i], arr[j]] = [arr[j], arr[i]];
         setArray([...arr]);
         newBarStates[i] = "default";
+        newBarStates[j] = "default";
       }
-      newBarStates[j] = "default";
+      else {
+        newBarStates[j] = "default";
+      }
     }
     newBarStates[i + 1] = "swapped";
     newBarStates[high] = "swapped";
@@ -116,10 +132,11 @@ export default function SortingVisualizer() {
       if (l >= 0 && l < arr.length) newBarStates[l] = "sorted";
       return;
     }
-    if (stopSortingRef.current) return;
+    if (stopSortingRef.current) throw new Error('STOP_SORTING');
     const m = Math.floor((l + r) / 2);
     await mergeSort(arr, l, m, newBarStates);
     await mergeSort(arr, m + 1, r, newBarStates);
+    if (stopSortingRef.current) throw new Error('STOP_SORTING');
     await merge(arr, l, m, r, newBarStates);
   };
 
@@ -130,16 +147,20 @@ export default function SortingVisualizer() {
     for (let j = 0; j < n2; j++) R[j] = arr[m + 1 + j];
     let i = 0, j = 0, k = l;
     while (i < n1 && j < n2) {
-      if (stopSortingRef.current) return;
+      if (stopSortingRef.current) throw new Error('STOP_SORTING');
       newBarStates[l + i] = "comparing";
       newBarStates[m + 1 + j] = "comparing";
       setBarStates([...newBarStates]);
       addLog(`Comparing ${L[i]} and ${R[j]}.`);
       await sleep(ALGORITHM_DELAY);
       if (L[i] <= R[j]) {
-        arr[k] = L[i]; i++;
+        arr[k] = L[i];
+        newBarStates[l+i] = "default";
+        i++;
       } else {
-        arr[k] = R[j]; j++;
+        arr[k] = R[j];
+        newBarStates[m+1+j] = "default";
+        j++;
       }
       newBarStates[k] = "swapped";
       setArray([...arr]);
@@ -149,7 +170,7 @@ export default function SortingVisualizer() {
       k++;
     }
     while (i < n1) {
-      if (stopSortingRef.current) return;
+      if (stopSortingRef.current) throw new Error('STOP_SORTING');
       arr[k] = L[i];
       newBarStates[k] = "sorted";
       setArray([...arr]); setBarStates([...newBarStates]);
@@ -157,7 +178,7 @@ export default function SortingVisualizer() {
       await sleep(ALGORITHM_DELAY);
     }
     while (j < n2) {
-      if (stopSortingRef.current) return;
+      if (stopSortingRef.current) throw new Error('STOP_SORTING');
       arr[k] = R[j];
       newBarStates[k] = "sorted";
       setArray([...arr]); setBarStates([...newBarStates]);
@@ -169,6 +190,7 @@ export default function SortingVisualizer() {
   const insertionSort = async (arr: number[], newBarStates: BarState[]) => {
     const n = arr.length;
     for (let i = 1; i < n; i++) {
+        if (stopSortingRef.current) throw new Error('STOP_SORTING');
         const key = arr[i];
         let j = i - 1;
         newBarStates[i] = "comparing";
@@ -177,7 +199,7 @@ export default function SortingVisualizer() {
         await sleep(ALGORITHM_DELAY);
 
         while (j >= 0 && arr[j] > key) {
-            if (stopSortingRef.current) return;
+            if (stopSortingRef.current) throw new Error('STOP_SORTING');
             newBarStates[j] = "comparing";
             setBarStates([...newBarStates]);
             addLog(`Comparing ${arr[j]} with ${key}.`);
@@ -199,6 +221,7 @@ export default function SortingVisualizer() {
         setArray([...arr]);
         setBarStates([...newBarStates]);
         await sleep(ALGORITHM_DELAY);
+        newBarStates[j + 1] = "default";
     }
     for(let k=0; k<n; k++) newBarStates[k] = "sorted";
     setBarStates([...newBarStates]);
@@ -207,17 +230,18 @@ export default function SortingVisualizer() {
   const selectionSort = async (arr: number[], newBarStates: BarState[]) => {
     const n = arr.length;
     for (let i = 0; i < n - 1; i++) {
+        if (stopSortingRef.current) throw new Error('STOP_SORTING');
         let min_idx = i;
         newBarStates[i] = "comparing"; // Current element being considered for minimum
         addLog(`Finding minimum from index ${i}.`);
         for (let j = i + 1; j < n; j++) {
-            if (stopSortingRef.current) return;
+            if (stopSortingRef.current) throw new Error('STOP_SORTING');
             newBarStates[j] = "comparing";
             setBarStates([...newBarStates]);
             addLog(`Comparing ${arr[j]} with current minimum ${arr[min_idx]}.`);
             await sleep(ALGORITHM_DELAY);
             if (arr[j] < arr[min_idx]) {
-                newBarStates[min_idx] = "default";
+                if(min_idx !== i) newBarStates[min_idx] = "default";
                 min_idx = j;
                 newBarStates[min_idx] = "comparing"; // New minimum found
             }
@@ -247,25 +271,40 @@ export default function SortingVisualizer() {
     addLog(`Starting ${algorithm}.`);
     const arr = [...array];
     const newBarStates = new Array(arr.length).fill("default") as BarState[];
-    switch (algorithm) {
-      case "bubbleSort": await bubbleSort(arr, newBarStates); break;
-      case "quickSort": await quickSort(arr, 0, arr.length - 1, newBarStates); break;
-      case "mergeSort": await mergeSort(arr, 0, arr.length - 1, newBarStates); break;
-      case "insertionSort": await insertionSort(arr, newBarStates); break;
-      case "selectionSort": await selectionSort(arr, newBarStates); break;
+    setBarStates(newBarStates);
+
+    try {
+      switch (algorithm) {
+        case "bubbleSort": await bubbleSort(arr, newBarStates); break;
+        case "quickSort": await quickSort(arr, 0, arr.length - 1, newBarStates); break;
+        case "mergeSort": await mergeSort(arr, 0, arr.length - 1, newBarStates); break;
+        case "insertionSort": await insertionSort(arr, newBarStates); break;
+        case "selectionSort": await selectionSort(arr, newBarStates); break;
+      }
+
+      if (!stopSortingRef.current) {
+        addLog("Sorting finished.");
+        setBarStates(new Array(array.length).fill("sorted"));
+      }
+    } catch (error) {
+        if (error instanceof Error && error.message === 'STOP_SORTING') {
+            addLog("Sorting stopped by user.");
+            setBarStates(new Array(array.length).fill("default"));
+        } else {
+            console.error(error);
+            addLog("An error occurred during sorting.");
+        }
+    } finally {
+      if (!stopSortingRef.current) {
+        setIsSorting(false);
+      }
     }
-    if (!stopSortingRef.current) {
-      addLog("Sorting finished.");
-      setBarStates(new Array(array.length).fill("sorted"));
-    } else {
-      addLog("Sorting stopped by user.");
-      setBarStates(new Array(array.length).fill("default"));
-    }
-    setIsSorting(false);
-    stopSortingRef.current = false;
   };
 
-  const stopSorting = () => { if (isSorting) stopSortingRef.current = true; };
+  const stopSorting = () => {
+    stopSortingRef.current = true;
+    setIsSorting(false);
+  };
 
   const getBarColor = (state: BarState) => {
     switch (state) {
