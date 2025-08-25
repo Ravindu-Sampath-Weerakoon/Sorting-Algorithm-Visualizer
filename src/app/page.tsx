@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 type Algorithm = "bubbleSort" | "quickSort" | "mergeSort" | "insertionSort" | "selectionSort";
 type BarState = "default" | "comparing" | "swapped" | "sorted";
@@ -15,17 +15,17 @@ export default function SortingVisualizer() {
   const [logs, setLogs] = useState<string[]>([]);
   const stopSortingRef = useRef(false);
 
-  useEffect(() => {
-    generateNewArray();
-  }, []);
-
-  const generateNewArray = () => {
+  const generateNewArray = useCallback(() => {
     if (isSorting) return;
     const newArray = Array.from({ length: 50 }, () => Math.floor(Math.random() * 100) + 1);
     setArray(newArray);
     setBarStates(new Array(50).fill("default"));
     setLogs(["Generated new array."]);
-  };
+  }, [isSorting]);
+
+  useEffect(() => {
+    generateNewArray();
+  }, [generateNewArray]);
 
   const addLog = (message: string) => {
     setLogs(prevLogs => [...prevLogs, message]);
@@ -169,7 +169,7 @@ export default function SortingVisualizer() {
   const insertionSort = async (arr: number[], newBarStates: BarState[]) => {
     const n = arr.length;
     for (let i = 1; i < n; i++) {
-        let key = arr[i];
+        const key = arr[i];
         let j = i - 1;
         newBarStates[i] = "comparing";
         setBarStates([...newBarStates]);
